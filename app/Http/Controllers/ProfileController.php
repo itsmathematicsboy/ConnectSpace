@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use App\Models\Post;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
@@ -102,5 +104,52 @@ class ProfileController extends Controller
         $user->save();
 
         return back()->with('success', 'Password berhasil diperbarui. Silakan login dengan password baru pada kunjungan berikutnya.');
+    }
+
+    /**
+     * Tampilkan profil publik user (bisa profil sendiri atau orang lain).
+     */
+    public function show(User $user): View
+    {
+        // Statistik: jumlah postingan & komentar milik user
+        $totalPosts    = $user->posts()->count();
+        $totalComments = $user->comments()->count();
+
+        // Statistik: total like yang diterima user di seluruh post-nya
+        $totalPostLikes = DB::table('likes')
+            ->join('posts', 'likes.post_id', '=', 'posts.id')
+            ->where('posts.user_id', $user->id)
+            ->count();
+
+        // Statistik: total like yang diterima user di seluruh komentarnya
+        $totalCommentLikes = DB::table('comment_likes')
+            ->join('comments', 'comment_likes.comment_id', '=', 'comments.id')
+            ->where('comments.user_id', $user->id)
+            ->count();
+
+        $totalLikesReceived = $totalPostLikes + $totalCommentLikes;
+
+        // List postingan user (desc), eager load relasi yang dibutuhkan partial post
+        $posts = Post::with([
+            'user:id,name,avatar',
+            'likes:user_id,post_id',
+            'comments.user:id,name,avatar',
+            'comments.replies.user:id,name,avatar',
+            'comments.replies.likes:user_id,comment_id',
+            'comments.likes:user_id,comment_id',
+        ])
+            ->withCount('likes')
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->paginate(5);
+
+        return view('profile.show', compact(
+            'user',
+            'totalPosts',
+            'totalComments',
+            'totalLikesReceived',
+            'posts'
+        ));
     }
 }

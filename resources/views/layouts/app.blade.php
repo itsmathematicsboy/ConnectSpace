@@ -178,5 +178,141 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 @stack('scripts')
+<script>
+/**
+ * Update character counter + disable tombol submit saat melewati batas.
+ * Tombol submit dicari otomatis di form yang sama (atau via data-submit-btn attribute).
+ */
+function updateCharCounter(textarea, counterId) {
+    const counter = document.getElementById(counterId);
+    if (!counter) return;
+
+    const max = 500;
+    const len = textarea.value.length;
+    counter.textContent = len;
+
+    // Cari tombol submit: prioritas dari data-submit-btn, fallback ke [type="submit"] di form terdekat
+    let submitBtn = null;
+    const targetId = textarea.getAttribute('data-submit-btn');
+    if (targetId) {
+        submitBtn = document.getElementById(targetId);
+    }
+    if (!submitBtn) {
+        const form = textarea.closest('form');
+        if (form) submitBtn = form.querySelector('[type="submit"]');
+    }
+
+    const overflow = len > max;
+
+    // Update warna counter
+    if (overflow) {
+        counter.classList.add('text-danger');
+        counter.classList.remove('text-muted-2');
+        counter.style.fontWeight = '700';
+    } else if (len > max * 0.9) {
+        counter.classList.remove('text-danger');
+        counter.classList.add('text-muted-2');
+        counter.style.fontWeight = '700';
+    } else {
+        counter.classList.remove('text-danger');
+        counter.classList.add('text-muted-2');
+        counter.style.fontWeight = '400';
+    }
+
+    // Disable/enable tombol submit
+    if (submitBtn) {
+        submitBtn.disabled = overflow;
+        if (overflow) {
+            submitBtn.classList.add('opacity-50', 'pe-none');
+        } else {
+            submitBtn.classList.remove('opacity-50', 'pe-none');
+        }
+    }
+}
+
+// Init counter untuk semua textarea yang punya oninput="updateCharCounter(...)"
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('textarea[oninput*="updateCharCounter"]').forEach(function (t) {
+        t.dispatchEvent(new Event('input'));
+    });
+});
+
+/**
+ * Deteksi lokasi via browser Geolocation API + reverse geocode via Nominatim (OpenStreetMap).
+ * Tombol trigger harus berada di dalam <form> yang punya input name="location",
+ * name="latitude", name="longitude".
+ */
+function detectLocation(btn) {
+    if (!navigator.geolocation) {
+        alert('Browser kamu tidak mendukung deteksi lokasi.');
+        return;
+    }
+    const form = btn.closest('form');
+    if (!form) return;
+    const locInput = form.querySelector('[name="location"]');
+    const latInput = form.querySelector('[name="latitude"]');
+    const lngInput = form.querySelector('[name="longitude"]');
+    if (!locInput) return;
+
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Mendeteksi...';
+
+    navigator.geolocation.getCurrentPosition(
+        function (pos) {
+            const lat = pos.coords.latitude.toFixed(7);
+            const lng = pos.coords.longitude.toFixed(7);
+
+            // Reverse geocode via OpenStreetMap Nominatim (gratis, no API key)
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`, {
+                headers: { 'Accept-Language': 'id' }
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        locInput.value = data.display_name;
+                    } else {
+                        locInput.value = `${lat}, ${lng}`;
+                    }
+                    if (latInput) latInput.value = lat;
+                    if (lngInput) lngInput.value = lng;
+                })
+                .catch(() => {
+                    // Jika reverse geocode gagal, tetap simpan koordinat sebagai fallback
+                    locInput.value = `${lat}, ${lng}`;
+                    if (latInput) latInput.value = lat;
+                    if (lngInput) lngInput.value = lng;
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                });
+        },
+        function (err) {
+            let msg = 'Gagal mendeteksi lokasi.';
+            if (err.code === 1) msg = 'Akses lokasi ditolak. Izinkan akses lokasi di browser.';
+            else if (err.code === 2) msg = 'Lokasi tidak tersedia.';
+            else if (err.code === 3) msg = 'Timeout deteksi lokasi.';
+            alert(msg + ' (' + err.message + ')');
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+}
+
+/**
+ * Clear field lokasi di form yang sama dengan tombol.
+ */
+function clearLocation(btn) {
+    const form = btn.closest('form');
+    if (!form) return;
+    ['location', 'latitude', 'longitude'].forEach(name => {
+        const el = form.querySelector(`[name="${name}"]`);
+        if (el) el.value = '';
+    });
+}
+
+</script>
 </body>
 </html>

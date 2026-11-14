@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['user_id', 'content', 'image'])]
+#[Fillable(['user_id', 'content', 'image', 'location', 'latitude', 'longitude'])]
 class Post extends Model
 {
     use HasFactory;
@@ -19,6 +19,25 @@ class Post extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    public function hasLocation(): bool
+    {
+        return ! empty($this->location) || ($this->latitude && $this->longitude);
+    }
+
+        /**
+     * URL Google Maps untuk koordinat post (jika ada).
+     */
+    public function mapsUrl(): ?string
+    {
+        if ($this->latitude && $this->longitude) {
+            return "https://www.google.com/maps?q={$this->latitude},{$this->longitude}";
+        }
+        if ($this->location) {
+            return 'https://www.google.com/maps?q='.urlencode($this->location);
+        }
+        return null;
+    }
 
     public function user(): BelongsTo
     {

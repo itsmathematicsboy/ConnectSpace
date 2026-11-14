@@ -6,6 +6,7 @@ use App\Http\Controllers\LikeController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\CommentLikeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,10 +25,15 @@ Route::middleware('guest')->group(function () {
 | Authenticated routes
 |--------------------------------------------------------------------------
 */
+
+// Profile (publik - bisa lihat profil user lain)
+Route::get('/users/{user}', [ProfileController::class, 'show'])->name('profile.show');
+
 Route::middleware('auth')->group(function () {
     // Home / Feed
     Route::get('/', [PostController::class, 'index'])->name('home');
     Route::get('/home', [PostController::class, 'index'])->name('home.alt');
+
 
     // Posts
     Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
@@ -36,8 +42,18 @@ Route::middleware('auth')->group(function () {
     // Like / Unlike
     Route::post('/posts/{post}/like', [LikeController::class, 'toggle'])->name('posts.like');
 
+    // Posts
+    Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
+    Route::put('/posts/{post}', [PostController::class, 'update'])->name('posts.update');      // ← BARU
+    Route::delete('/posts/{post}/comments/{comment}', [CommentController::class, 'destroy'])->name('posts.comments.destroy'); // ← INI YANG KURANG
+
     // Comments
     Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->name('posts.comments.store');
+    Route::put('/posts/{post}/comments/{comment}', [CommentController::class, 'update'])->name('posts.comments.update'); // ← BARU
+    Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->name('posts.comments.store');
+
+    // Comment Likes
+    Route::post('/comments/{comment}/like', [CommentLikeController::class, 'toggle'])->name('comments.like');
 
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
